@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR Tool - Détection de texte manuscrit</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 15px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .result-section {
+            margin-bottom: 30px;
+        }
+
+        .result-title {
+            font-size: 1.4em;
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .badge-easyocr {
+            background: #4ade80;
+            color: white;
+        }
+
+        .badge-tesseract {
+            background: #60a5fa;
+            color: white;
+        }
+
+        .text-result {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .image-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .image-box {
+            text-align: center;
+        }
+
+        .image-box img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .image-label {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+
+        .error {
+            background: #fee;
+            border-left: 4px solid #f44;
+            padding: 15px;
+            border-radius: 8px;
+            color: #c00;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .image-comparison {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 OCR Tool</h1>
+            <p class="subtitle">Détection intelligente de texte manuscrit et imprimé</p>
+        </header>
+
+        <div class="card">
+            <div id="uploadArea" class="upload-area">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">Glissez-déposez une image ici</div>
+                <div class="upload-hint">ou cliquez pour sélectionner un fichier</div>
+                <div class="upload-hint">(PNG, JPG, JPEG - Max 16MB)</div>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Analyse en cours... ⏳</p>
+                <p style="color: #888; font-size: 0.9em; margin-top: 10px;">
+                    Cela peut prendre quelques secondes
+                </p>
+            </div>
+
+            <div id="error" class="error"></div>
+        </div>
+
+        <div id="results" class="results">
+            <div class="card">
+                <h2 style="margin-bottom: 20px; color: #333;">📊 Résultats de l'analyse</h2>
+                
+                <div class="image-comparison">
+                    <div class="image-box">
+                        <img id="originalImage" src="" alt="Image originale">
+                        <div class="image-label">Image originale</div>
+                    </div>
+                    <div class="image-box">
+                        <img id="annotatedImage" src="" alt="Image annotée">
+                        <div class="image-label">Détections annotées</div>
+                    </div>
+                </div>
+
+                <div class="stats" id="stats"></div>
+            </div>
+
+            <div class="card">
+                <div class="result-section">
+                    <div class="result-title">
+                        <span>🤖 EasyOCR</span>
+                        <span class="badge badge-easyocr">Recommandé pour manuscrit</span>
+                    </div>
+                    <div id="easyocrText" class="text-result"></div>
+                </div>
+
+                <div class="result-section">
+                    <div class="result-title">
+                        <span>📝 Tesseract OCR</span>
+                        <span class="badge badge-tesseract">Comparaison</span>
+                    </div>
+                    <div id="tesseractText" class="text-result"></div>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn" onclick="resetUpload()">📤 Analyser une nouvelle image</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const error = document.getElementById('error');
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        async function handleFile(file) {
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                showError('Veuillez sélectionner une image valide');
+                return;
+            }
+
+            // Hide elements
+            uploadArea.style.display = 'none';
+            error.style.display = 'none';
+            results.style.display = 'none';
+            loading.style.display = 'block';
+
+            // Create form data
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Erreur lors du traitement');
+                }
+
+                displayResults(data);
+            } catch (err) {
+                showError(err.message);
+                uploadArea.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function displayResults(data) {
+            // Show results section
+            results.style.display = 'block';
+
+            // Display images
+            document.getElementById('originalImage').src = `/images/${data.filename}`;
+            document.getElementById('annotatedImage').src = `/output/${data.annotated_image}`;
+
+            // Display EasyOCR text
+            const easyocrText = data.results.easyocr?.full_text || 'Aucun texte détecté';
+            document.getElementById('easyocrText').textContent = easyocrText;
+
+            // Display Tesseract text
+            const tesseractText = data.results.tesseract?.full_text || 'Aucun texte détecté';
+            document.getElementById('tesseractText').textContent = tesseractText;
+
+            // Display statistics
+            const statsHtml = `
+                <div class="stat-card">
+                    <div class="stat-value">${data.results.easyocr?.detections?.length || 0}</div>
+                    <div class="stat-label">Détections EasyOCR</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${data.results.tesseract?.detections?.length || 0}</div>
+                    <div class="stat-label">Détections Tesseract</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${calculateAvgConfidence(data.results.easyocr)}%</div>
+                    <div class="stat-label">Confiance moyenne</div>
+                </div>
+            `;
+            document.getElementById('stats').innerHTML = statsHtml;
+
+            // Scroll to results
+            results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function calculateAvgConfidence(results) {
+            if (!results?.detections || results.detections.length === 0) return 0;
+            
+            const sum = results.detections.reduce((acc, det) => acc + det.confidence, 0);
+            return Math.round(sum / results.detections.length);
+        }
+
+        function showError(message) {
+            error.textContent = '❌ ' + message;
+            error.style.display = 'block';
+        }
+
+        function resetUpload() {
+            uploadArea.style.display = 'block';
+            results.style.display = 'none';
+            error.style.display = 'none';
+            fileInput.value = '';
+            
+            uploadArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    </script>
+</body>
+</html>
